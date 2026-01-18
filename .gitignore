@@ -40,3 +40,7 @@ GPATH
 GRTAGS
 GTAGS
 TAGS
+
+.cache
+.xmake
+build
