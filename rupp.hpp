@@ -9,13 +9,19 @@
 #define HANDLE_INPUT 1
 #endif
 
+#ifdef USE_WIN_API
+#define MODE 1
+#else
+#define MODE 0
+#endif
+
 namespace rupp {
 
 using RuStr = const char*;
 
 struct Vec {
-	int x {};
-	int y {};
+	int x { };
+	int y { };
 };
 
 struct CtrlReset { };
@@ -33,11 +39,11 @@ inline unsigned char rgb(unsigned char r, unsigned char g, unsigned char b)
 }
 
 struct Fg {
-	const unsigned char index {};
+	const unsigned char index { };
 };
 
 struct Bg {
-	const unsigned char index {};
+	const unsigned char index { };
 };
 
 inline constexpr Fg FgBlack { 0 };
@@ -245,11 +251,20 @@ void tui(DRAW&& draw, INPUT&& input)
 	setCursor(true);
 }
 
+inline void setConsoleTitle(RuStr title)
+{
+	const char* const ANSI_CONSOLE_TITLE_PRE = "\033]0;";
+	const char* const ANSI_CONSOLE_TITLE_POST = "\007";
+	impl::f("%s%s%s", ANSI_CONSOLE_TITLE_PRE, title, ANSI_CONSOLE_TITLE_POST);
+}
+
 } // namespace rupp
 
 // ========================================================================
 
 #if HANDLE_INPUT
+
+#if MODE == 0
 
 #include <sys/ioctl.h> /* for getkey() */
 #include <sys/time.h> /* for kbhit() */
@@ -261,7 +276,7 @@ namespace rupp {
 
 inline int getch()
 {
-	struct termios oldt {};
+	struct termios oldt { };
 	tcgetattr(STDIN_FILENO, &oldt);
 
 	struct termios newt = oldt;
@@ -277,7 +292,7 @@ inline int getch()
 
 inline int kbhit()
 {
-	struct termios oldt {};
+	struct termios oldt { };
 	tcgetattr(STDIN_FILENO, &oldt);
 
 	struct termios newt = oldt;
@@ -299,6 +314,58 @@ inline int kbhit()
 
 	return cnt; /* Return number of characters */
 }
+
+inline Vec dim()
+{
+#ifdef TIOCGSIZE
+	struct ttysize ts;
+	ioctl(STDIN_FILENO, TIOCGSIZE, &ts);
+	return ts.ts_lines;
+#elif defined(TIOCGWINSZ)
+	struct winsize ts;
+	ioctl(STDIN_FILENO, TIOCGWINSZ, &ts);
+	return { ts.ws_col, ts.ws_row };
+#else /* TIOCGSIZE */
+	return -1;
+#endif /* TIOCGSIZE */
+	return { };
+}
+
+} // namespace rupp
+
+#elif MODE == 1
+
+#include <conio.h>
+#include <wchar.h>
+#include <windows.h>
+
+namespace rupp {
+
+inline int getch() { return ::_getch(); }
+
+inline int kbhit() { return ::_kbhit(); }
+
+inline Vec dim()
+{
+	HANDLE console = CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+		OPEN_EXISTING, 0, NULL);
+	if (console == INVALID_HANDLE_VALUE)
+		return { };
+	CONSOLE_SCREEN_BUFFER_INFO info { };
+	if (GetConsoleScreenBufferInfo(console, &info) == 0)
+		return { };
+	CloseHandle(console);
+	const auto columns = info.srWindow.Right - info.srWindow.Left + 1;
+	const auto rows = info.srWindow.Bottom - info.srWindow.Top + 1;
+	return { columns, rows };
+}
+
+} // namespace rupp
+
+#endif
+
+namespace rupp {
 
 inline int getkey()
 {
@@ -389,30 +456,3 @@ inline int getkey()
 } // namespace rupp
 
 #endif
-
-namespace rupp {
-
-inline Vec dim()
-{
-#ifdef TIOCGSIZE
-	struct ttysize ts;
-	ioctl(STDIN_FILENO, TIOCGSIZE, &ts);
-	return ts.ts_lines;
-#elif defined(TIOCGWINSZ)
-	struct winsize ts;
-	ioctl(STDIN_FILENO, TIOCGWINSZ, &ts);
-	return { ts.ws_col, ts.ws_row };
-#else /* TIOCGSIZE */
-	return -1;
-#endif /* TIOCGSIZE */
-	return {};
-}
-
-inline void setConsoleTitle(RuStr title)
-{
-	const char* const ANSI_CONSOLE_TITLE_PRE = "\033]0;";
-	const char* const ANSI_CONSOLE_TITLE_POST = "\007";
-	impl::f("%s%s%s", ANSI_CONSOLE_TITLE_PRE, title, ANSI_CONSOLE_TITLE_POST);
-}
-
-} // namespace rupp

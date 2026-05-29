@@ -17,22 +17,29 @@ void example(const char* label, unsigned char i)
 int main(int, char**)
 {
 	using namespace rupp;
+
 	put("\n");
 	example<Fg>("fg", 5);
 	put("\n");
 	example<Bg>("bg", 1);
 	put("\n");
+
 	for (unsigned char i = 0, idx = 0; i < 16; ++i) {
 		for (unsigned char j = 0; j < 16; ++j, ++idx)
 			fmt(Fg { idx }, " %3d ", idx);
-		put("\n");
+		put(Reset, "\n");
 	}
 	put("\n");
+
 	for (unsigned char i = 0, idx = 0; i < 16; ++i) {
 		for (unsigned char j = 0; j < 16; ++j, ++idx)
 			fmt(Bg { idx }, " %3d ", idx);
-		put("\n");
+		put(Reset, "\n");
 	}
 	put("\n");
+
+	auto ts = dim();
+	fmt("%d x %d\n", ts.x, ts.y);
+
 	return 0;
 }

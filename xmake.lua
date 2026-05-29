@@ -13,6 +13,10 @@ function addExample(name)
 	if is_mode("debug") then
 		add_defines("DEBUG")
 	end
+	if is_os("windows") then
+		add_defines("USE_WIN_API")
+		add_cxflags("-mwindows")
+	end
 end
 
 addExample("rucolors")

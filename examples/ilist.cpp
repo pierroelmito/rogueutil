@@ -6,21 +6,21 @@
 #include <vector>
 
 struct Location {
-	size_t start {};
-	size_t selected {};
+	size_t start { };
+	size_t selected { };
 };
 
 struct Data {
-	std::string line {};
-	std::string actionContent {};
-	std::string actionCommand {};
+	std::string line { };
+	std::string actionContent { };
+	std::string actionCommand { };
 	std::vector<std::string> content;
-	Location loc {};
-	int frame {};
-	int action {};
+	Location loc { };
+	int frame { };
+	int action { };
 	static Data& get()
 	{
-		static Data v {};
+		static Data v { };
 		return v;
 	}
 };
@@ -56,7 +56,7 @@ void Draw(rupp::Vec d)
 		data.loc.start = data.loc.selected - d.y + 2;
 	}
 
-	rupp::put(rupp::Cls, rupp::Reset);
+	rupp::put(rupp::Cls);
 
 	// status bar
 	{
@@ -70,17 +70,17 @@ void Draw(rupp::Vec d)
 	{
 		put(rupp::Reset);
 		for (int y = 0; y < d.y - 1; ++y) {
+			put(rupp::Vec { 1, 1 + y });
 			const size_t index = y + data.loc.start;
 			if (index < data.content.size()) {
-				put(rupp::Vec { 1, y + 1 });
 				const auto& line = data.content[index];
 				if (index == data.loc.selected) {
 					rupp::fmt(rupp::Reset, rupp::Bg { 26 }, rupp::Fg { 227 });
 					const int sz = rupp::fmt("%s", line.c_str());
 					eol(sz);
-					rupp::put(rupp::Reset, "\n");
+					put(rupp::Reset);
 				} else {
-					rupp::fmt(rupp::Fg { 254 }, "%s\n", line.c_str());
+					rupp::fmt(rupp::Fg { 254 }, "%s", line.c_str());
 				}
 			} else {
 				break;
@@ -88,7 +88,6 @@ void Draw(rupp::Vec d)
 		}
 	}
 
-	rupp::put(rupp::Reset);
 	fflush(stdout);
 }
 
@@ -120,6 +119,16 @@ std::optional<size_t> scroll(size_t pos, size_t sz, size_t h, int k)
 	return std::nullopt;
 }
 
+std::string Replace(std::string str, const std::string& orig, const std::string& rep)
+{
+	size_t pos = str.find(orig);
+	while (pos != std::string::npos) {
+		str.replace(pos, orig.size(), rep);
+		pos = str.find(orig, pos + rep.size());
+	}
+	return str;
+}
+
 bool Input(rupp::Vec d, int k)
 {
 	if (k == 'q')
@@ -131,9 +140,9 @@ bool Input(rupp::Vec d, int k)
 	} else if (k == rupp::KeyCode::Enter) {
 		data.action += 1;
 		if (!data.content.empty()) {
-			setenv("LINE", data.content[selected].c_str(), 1);
+			const std::string cmd = Replace(data.actionCommand, "%l", data.content[selected]);
 			rupp::setCursor(true);
-			system(data.actionCommand.c_str());
+			system(cmd.c_str());
 			rupp::setCursor(false);
 		}
 	}
