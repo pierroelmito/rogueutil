@@ -8,6 +8,7 @@
 struct Location {
 	size_t start { };
 	size_t selected { };
+	size_t previousSel { };
 };
 
 struct Data {
@@ -42,7 +43,7 @@ std::vector<std::string> getCommandOutput(const std::string& command)
 	return outputLines;
 }
 
-void Draw(rupp::Vec d)
+void Draw(rupp::Vec d, size_t frameIndex)
 {
 	auto& data = Data::get();
 
@@ -50,13 +51,19 @@ void Draw(rupp::Vec d)
 	data.frame += 1;
 	auto eol = [&](int sz) { rupp::fmt("%s", data.line.data() + sz); };
 
-	if (data.loc.selected < data.loc.start) {
-		data.loc.start = data.loc.selected;
-	} else if (data.loc.selected > data.loc.start + d.y - 2) {
-		data.loc.start = data.loc.selected - d.y + 2;
+	bool fullRedraw = frameIndex == 0;
+
+	const auto s = data.loc.selected;
+	if (s < data.loc.start) {
+		fullRedraw = true;
+		data.loc.start = s;
+	} else if (s > data.loc.start + d.y - 2) {
+		fullRedraw = true;
+		data.loc.start = s - d.y + 2;
 	}
 
-	rupp::put(rupp::Cls);
+	if (fullRedraw)
+		rupp::put(rupp::Cls);
 
 	// status bar
 	{
@@ -70,8 +77,12 @@ void Draw(rupp::Vec d)
 	{
 		put(rupp::Reset);
 		for (int y = 0; y < d.y - 1; ++y) {
-			put(rupp::Vec { 1, 1 + y });
 			const size_t index = y + data.loc.start;
+			if (!fullRedraw) {
+				if (index != s && index != data.loc.previousSel)
+					continue;
+			}
+			put(rupp::Vec { 1, 1 + y });
 			if (index < data.content.size()) {
 				const auto& line = data.content[index];
 				if (index == data.loc.selected) {
@@ -80,7 +91,9 @@ void Draw(rupp::Vec d)
 					eol(sz);
 					put(rupp::Reset);
 				} else {
-					rupp::fmt(rupp::Fg { 254 }, "%s", line.c_str());
+					const int sz = rupp::fmt(rupp::Fg { 254 }, "%s", line.c_str());
+					if (!fullRedraw)
+						eol(sz);
 				}
 			} else {
 				break;
@@ -134,13 +147,14 @@ bool Input(rupp::Vec d, int k)
 	if (k == 'q')
 		return false;
 	auto& data = Data::get();
-	size_t& selected = data.loc.selected;
-	if (auto npos = scroll(selected, data.content.size(), d.y - 2, k); npos) {
-		selected = *npos;
+	size_t& s = data.loc.selected;
+	if (auto npos = scroll(s, data.content.size(), d.y - 2, k); npos) {
+		data.loc.previousSel = s;
+		s = *npos;
 	} else if (k == rupp::KeyCode::Enter) {
 		data.action += 1;
 		if (!data.content.empty()) {
-			const std::string cmd = Replace(data.actionCommand, "%l", data.content[selected]);
+			const std::string cmd = Replace(data.actionCommand, "%l", data.content[s]);
 			rupp::setCursor(true);
 			system(cmd.c_str());
 			rupp::setCursor(false);

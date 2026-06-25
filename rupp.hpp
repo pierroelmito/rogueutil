@@ -228,23 +228,25 @@ int fmt(F first, T... args)
 	}
 }
 
-template <std::invocable<Vec> DRAW, std::invocable<Vec, int> INPUT>
+template <std::invocable<Vec, size_t> DRAW, std::invocable<Vec, int> INPUT>
 void tui(DRAW&& draw, INPUT&& input)
 {
+	size_t frameIndex{};
 	setCursor(false);
 	auto cd = dim();
-	draw(cd);
+	draw(cd, frameIndex++);
 	while (true) {
 		const auto nd = dim();
 		if (cd != nd) {
 			cd = nd;
-			draw(cd);
+			frameIndex = 0;
+			draw(cd, frameIndex++);
 		}
 		if (kbhit()) {
 			int k = getkey();
 			if (!input(cd, k))
 				break;
-			draw(cd);
+			draw(cd, frameIndex++);
 		}
 	}
 	put(Reset);
