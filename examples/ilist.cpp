@@ -15,6 +15,7 @@ struct Data {
 	std::string line { };
 	std::string actionContent { };
 	std::string actionCommand { };
+	std::string currentCommand { };
 	std::vector<std::string> content;
 	Location loc { };
 	int frame { };
@@ -69,7 +70,7 @@ void Draw(rupp::Vec d, size_t frameIndex)
 	{
 		put(rupp::Vec { 1, d.y }, rupp::Bg { 238 });
 		rupp::put(rupp::Bg { 70 }, rupp::Fg { 255 });
-		const int sz = rupp::fmt("%d - %d - %d", data.frame, data.action, data.loc.selected);
+		const int sz = rupp::fmt("[%ld/%ld] - %s", 1 + data.loc.selected, data.content.size(), data.currentCommand.c_str());
 		eol(sz);
 	}
 
@@ -151,10 +152,11 @@ bool Input(rupp::Vec d, int k)
 	if (auto npos = scroll(s, data.content.size(), d.y - 2, k); npos) {
 		data.loc.previousSel = s;
 		s = *npos;
+		data.currentCommand = Replace(data.actionCommand, "%l", data.content[s]);
 	} else if (k == rupp::KeyCode::Enter) {
 		data.action += 1;
 		if (!data.content.empty()) {
-			const std::string cmd = Replace(data.actionCommand, "%l", data.content[s]);
+			const std::string& cmd = data.currentCommand;
 			rupp::setCursor(true);
 			system(cmd.c_str());
 			rupp::setCursor(false);
@@ -171,6 +173,9 @@ int main(int ac, char** av)
 	data.actionContent = av[1];
 	data.actionCommand = av[2];
 	data.content = getCommandOutput(data.actionContent);
+	if (data.content.empty())
+		return 1;
+	data.currentCommand = Replace(data.actionCommand, "%l", data.content[data.loc.selected]);
 	rupp::tui(Draw, Input);
 	return 0;
 }
